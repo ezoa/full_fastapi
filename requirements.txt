@@ -1,0 +1,15 @@
+Click
+fastapi
+h11
+httptools
+psycopg2-binary
+pydantic
+SQLAlchemy
+starlette
+typing
+uvicorn
+uvloop
+websockets
+passlib[bcrypt]
+loguru
+requests

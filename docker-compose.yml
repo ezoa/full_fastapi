@@ -1,0 +1,119 @@
+version: '3.7'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.15.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    env_file:
+      - .env
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - closed_project
+
+    
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.15.0
+    container_name: logstash
+    volumes:
+      - ./logstash/config/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./app_logs:/usr/share/logstash/logs/app_logs
+    ports:
+      - "5044:5044"
+    environment:
+      - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
+      - xpack.monitoring.enabled=false
+      - ELASTICSEARCH_USERNAME=${ELASTICSEARCH_USERNAME}
+      - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD}
+    env_file:
+      - .env
+    networks:
+      - closed_project
+    depends_on:
+      - elasticsearch
+    
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.15.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=${ELASTICSEARCH_USERNAME}
+      - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD}
+    env_file:
+      - .env
+    volumes:
+      - kibana-data:/usr/share/kibana/data
+    networks:
+      - closed_project
+    depends_on:
+      - elasticsearch
+
+
+  web:
+    build: .
+    command: uvicorn rutilea_app.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:12.0-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=username
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=rutilea_db
+    ports:
+      - 5432:5432
+    expose: 
+      - 5432
+
+  pgadmin:
+    image: dpage/pgadmin4:6.11
+    ports:
+
+      - 8080:8050
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./config/servers.json/:/pgadmin4/servers.json
+
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=ezoaavotchi@gmail.com
+      - PGADMIN_DEFAULT_PASSWORD=password
+      # - PGADMIN_CONFIG_SERVER_MODE="False"
+      # - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED="False"
+
+    depends_on:
+      - db
+
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin-data:
+
+  es-data:
+    driver: local
+  kibana-data:
+    driver: local
+
+
+networks:
+  closed_project:
+    driver: bridge
+
+
+
+
